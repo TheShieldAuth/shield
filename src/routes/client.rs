@@ -12,14 +12,14 @@ use super::auth;
 
 pub fn create_routes() -> Router {
     Router::new().route("/", get(get_clients).post(create_client)).nest(
-        "/:client_id",
+        "/{client_id}",
         Router::new()
             .route("/", get(get_client).patch(update_client).delete(delete_client))
             .nest(
                 "/api-users",
                 Router::new()
                     .route("/", get(get_api_users).post(create_api_user))
-                    .route("/:api_user_id", patch(update_api_user).delete(delete_api_user)),
+                    .route("/{api_user_id}", patch(update_api_user).delete(delete_api_user)),
             )
             .nest("/auth", auth::create_routes()),
     )

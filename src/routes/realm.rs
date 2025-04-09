@@ -6,7 +6,7 @@ use super::{client, user};
 
 pub fn create_routes() -> Router {
     Router::new().route("/", get(get_realms).post(create_realm)).nest(
-        "/:realm_id",
+        "/{realm_id}",
         Router::new()
             .route("/", get(get_realm).patch(update_realm).delete(delete_realm))
             .nest("/clients", client::create_routes())

@@ -5,9 +5,8 @@ use crate::packages::db::AppState;
 use crate::packages::errors::AuthenticateError;
 use crate::packages::errors::Error;
 
-use axum::{async_trait, extract::FromRequestParts, http::request::Parts};
+use axum::{extract::FromRequestParts, http::request::Parts};
 
-#[async_trait]
 impl<S> FromRequestParts<S> for ApiUser
 where
     S: Send + Sync,

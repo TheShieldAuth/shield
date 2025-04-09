@@ -15,14 +15,14 @@ pub fn create_routes() -> Router {
         .route("/send-email-verification", post(send_email_verification))
         .route("/verify-email", post(verify_email))
         .nest(
-            "/:user_id",
+            "/{user_id}",
             Router::new()
                 .route("/", get(get_user).patch(update_user).delete(delete_user))
                 .route("/forgot-password", post(initiate_forgot_password).patch(forgot_password))
                 .nest(
                     "/resource-group",
                     Router::new().route("/", get(get_resource_groups)).nest(
-                        "/:resource_group_id",
+                        "/{resource_group_id}",
                         Router::new().route("/", get(get_resource_group).patch(update_resource_group).delete(delete_resource_group)),
                     ),
                 )
@@ -30,7 +30,7 @@ pub fn create_routes() -> Router {
                     "/resources",
                     Router::new()
                         .route("/", get(get_resources).post(add_resources))
-                        .route("/:resource_id", patch(update_resource).delete(delete_resource)),
+                        .route("/{resource_id}", patch(update_resource).delete(delete_resource)),
                 ),
         )
 }

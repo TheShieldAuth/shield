@@ -4,14 +4,13 @@ use crate::packages::jwt_token;
 use crate::packages::jwt_token::JwtUser;
 use crate::packages::settings::SETTINGS;
 
-use axum::{async_trait, extract::FromRequestParts, http::request::Parts, RequestPartsExt};
+use axum::{extract::FromRequestParts, http::request::Parts, RequestPartsExt};
 
 use axum_extra::{
     headers::{authorization::Bearer, Authorization},
     TypedHeader,
 };
 
-#[async_trait]
 impl<S> FromRequestParts<S> for JwtUser
 where
     S: Send + Sync,
