@@ -1,9 +1,9 @@
 use crate::{
+    app::AppState,
     mappers::auth::LoginResponse,
     middleware::session_info_extractor::SessionInfo,
     packages::{
         api_token::RefreshTokenClaims,
-        db::AppState,
         errors::{AuthenticateError, Error, NotFoundError},
         jwt_token::create,
         settings::SETTINGS,
@@ -78,7 +78,7 @@ pub async fn get_active_sessions_by_user_and_client_id(
 }
 
 pub async fn create_session_and_refresh_token(
-    state: Arc<AppState>,
+    state: AppState,
     user: user::Model,
     client: client::Model,
     resource_groups: resource_group::Model,

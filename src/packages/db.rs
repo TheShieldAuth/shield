@@ -6,12 +6,7 @@ use tracing::info;
 
 use super::settings::SETTINGS;
 
-#[derive(Clone)]
-pub struct AppState {
-    pub db: DatabaseConnection,
-}
-
-pub async fn get_db_connection_pool() -> Result<AppState, DbErr> {
+pub async fn get_db_connection_pool() -> Result<DatabaseConnection, DbErr> {
     let uri = SETTINGS.read().database.uri.clone();
     let db_name = SETTINGS.read().database.name.clone();
     let connection_string = format!("{}/{}", uri, db_name);
@@ -60,5 +55,5 @@ pub async fn get_db_connection_pool() -> Result<AppState, DbErr> {
 
     Migrator::up(&db, None).await?;
 
-    Ok(AppState { db })
+    Ok(db)
 }

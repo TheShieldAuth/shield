@@ -22,12 +22,12 @@ use crate::{
     utils::{hash::generate_password_hash, helpers::default_cred::DefaultCred},
 };
 
-use super::{api_token::ApiUser, db::AppState, errors::Error};
+use super::{api_token::ApiUser, errors::Error};
 
-pub async fn setup(state: &AppState) -> Result<bool, TransactionError<Error>> {
+pub async fn setup(db: &DatabaseConnection) -> Result<bool, TransactionError<Error>> {
     info!("Checking ADMIN availability!");
     let admin_email = SETTINGS.read().admin.email.clone();
-    let is_admin_user_exists = user::Entity::find().filter(user::Column::Email.eq(admin_email)).one(&state.db).await?;
+    let is_admin_user_exists = user::Entity::find().filter(user::Column::Email.eq(admin_email)).one(db).await?;
 
     if is_admin_user_exists.is_some() {
         info!("DB has been already initialized!");
@@ -37,7 +37,7 @@ pub async fn setup(state: &AppState) -> Result<bool, TransactionError<Error>> {
         info!("DB has not been initialized!");
         info!("⌛ Initializing the DB...");
 
-        initialize_db(&state.db).await?;
+        initialize_db(db).await?;
         info!("Admin initialization complete.");
         Settings::reload().expect("Failed to reload settings");
         Ok(true)

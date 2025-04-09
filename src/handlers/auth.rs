@@ -8,13 +8,13 @@ use sea_orm::{prelude::Uuid, ColumnTrait, EntityTrait, QueryFilter, TransactionT
 use std::sync::Arc;
 
 use crate::{
+    app::AppState,
     mappers::auth::{
         Credentials, IntrospectRequest, IntrospectResponse, LoginResponse, LogoutRequest, LogoutResponse, RefreshTokenRequest, RefreshTokenResponse,
     },
     middleware::session_info_extractor::SessionInfo,
     packages::{
         api_token::{verify_and_decode_jwt, ApiUser, RefreshTokenClaims},
-        db::AppState,
         errors::{AuthenticateError, Error},
         jwt_token::{decode, JwtUser},
         settings::SETTINGS,
@@ -29,12 +29,15 @@ use crate::{
     },
     utils::role_checker::has_access_to_api_cred,
 };
-use axum::{extract::Path, Extension, Form, Json};
+use axum::{
+    extract::{Path, State},
+    Extension, Form, Json,
+};
 use tracing::debug;
 
 pub async fn login(
+    State(app_state): State<AppState>,
     api_user: ApiUser,
-    Extension(state): Extension<Arc<AppState>>,
     Extension(session_info): Extension<Arc<SessionInfo>>,
     Path((realm_id, client_id)): Path<(Uuid, Uuid)>,
     Form(payload): Form<Credentials>,
@@ -46,15 +49,15 @@ pub async fn login(
         return Err(Error::Authenticate(AuthenticateError::ActionForbidden));
     }
 
-    let (user, resource_groups) = get_active_user_and_resource_groups(&state.db, Either::E1(payload.username), realm_id, client_id).await?;
+    let (user, resource_groups) = get_active_user_and_resource_groups(&app_state.db, Either::E1(payload.username), realm_id, client_id).await?;
 
     if !user.verify_password(&payload.password) {
         debug!("Wrong password");
         return Err(Error::Authenticate(AuthenticateError::WrongCredentials));
     }
 
-    let client = get_active_client_by_id(&state.db, client_id).await?;
-    let sessions = get_active_sessions_by_user_and_client_id(&state.db, user.id, client.id).await?;
+    let client = get_active_client_by_id(&app_state.db, client_id).await?;
+    let sessions = get_active_sessions_by_user_and_client_id(&app_state.db, user.id, client.id).await?;
 
     if sessions.len() >= client.max_concurrent_sessions as usize {
         debug!("Client has reached max concurrent sessions");
@@ -66,7 +69,7 @@ pub async fn login(
         return Err(Error::Authenticate(AuthenticateError::AccountNotActivated));
     }
 
-    let login_response = create_session_and_refresh_token(state, user, client, resource_groups, session_info).await?;
+    let login_response = create_session_and_refresh_token(app_state, user, client, resource_groups, session_info).await?;
     Ok(Json(login_response))
 }
 
@@ -80,8 +83,8 @@ pub async fn logout_current_session(user: JwtUser, Extension(state): Extension<A
 }
 
 pub async fn logout(
+    State(app_state): State<AppState>,
     api_user: ApiUser,
-    Extension(state): Extension<Arc<AppState>>,
     Path((_, _)): Path<(Uuid, Uuid)>,
     Form(payload): Form<LogoutRequest>,
 ) -> Result<Json<LogoutResponse>, Error> {
@@ -96,7 +99,7 @@ pub async fn logout(
                 .map_err(|_| AuthenticateError::InvalidToken)?
                 .claims;
 
-            let result = session::Entity::delete_by_id(claims.sid).exec(&state.db).await?;
+            let result = session::Entity::delete_by_id(claims.sid).exec(&app_state.db).await?;
             Ok(Json(LogoutResponse {
                 ok: result.rows_affected == 1,
                 user_id: claims.sub,
@@ -109,7 +112,7 @@ pub async fn logout(
                     .map_err(|_| AuthenticateError::InvalidToken)?
                     .claims;
 
-                let result = session::Entity::delete_by_id(claims.sid).exec(&state.db).await?;
+                let result = session::Entity::delete_by_id(claims.sid).exec(&app_state.db).await?;
                 Ok(Json(LogoutResponse {
                     ok: result.rows_affected == 1,
                     user_id: claims.sub,

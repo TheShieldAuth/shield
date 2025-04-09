@@ -7,7 +7,6 @@ use std::{env, fmt, path::Path, sync::Arc};
 
 use crate::utils::helpers::default_cred::DefaultCred;
 
-// pub static SETTINGS: Lazy<Settings> = Lazy::new(|| Settings::new().expect("Failed to setup settings"));
 pub static SETTINGS: Lazy<Arc<RwLock<Settings>>> = Lazy::new(|| Arc::new(RwLock::new(Settings::new().expect("Failed to setup settings"))));
 
 #[derive(Debug, Clone, Deserialize)]
@@ -63,59 +62,14 @@ pub struct Settings {
 impl Settings {
     pub fn new() -> Result<Self, ConfigError> {
         dotenv().ok();
-        let run_mode = env::var("RUN_MODE").unwrap_or_else(|_| "development".into());
+        let run_mode = env::var("RUN_MODE").unwrap_or_else(|_| panic!("RUN_MODE environment variable not set"));
 
         let mut builder = Config::builder()
             .add_source(File::with_name("config/env/default"))
-            .add_source(File::with_name(&format!("config/env/{run_mode}")).required(false))
-            .add_source(File::with_name("config/env/local").required(false))
-            .add_source(Environment::default().separator("__"));
-
-        // Some cloud services like Heroku exposes a randomly assigned port in
-        // the PORT env var and there is no way to change the env var name.
-        if let Ok(signing_key) = env::var("SIGNING_KEY") {
-            builder = builder.set_override("secrets.signing_key", signing_key)?;
-        }
-        if let Ok(api_key_signing_secret) = env::var("API_KEY_SIGNING_SECRET") {
-            builder = builder.set_override("secrets.api_key_signing_secret", api_key_signing_secret)?;
-        }
-        if let Ok(port) = env::var("PORT") {
-            builder = builder.set_override("server.port", port)?;
-        }
-        if let Ok(domain) = env::var("DOMAIN") {
-            builder = builder.set_override("server.domain", domain)?;
-        }
-        if let Ok(host) = env::var("HOST") {
-            builder = builder.set_override("server.host", host)?;
-        }
-        if let Ok(database_uri) = env::var("DATABASE_URL") {
-            builder = builder.set_override("database.uri", database_uri)?;
-        }
-        if let Ok(database_name) = env::var("DATABASE_NAME") {
-            builder = builder.set_override("database.name", database_name)?;
-        }
-        if let Ok(admin_email) = env::var("ADMIN_USERNAME") {
-            builder = builder.set_override("admin.email", admin_email)?;
-        }
-        if let Ok(admin_password) = env::var("ADMIN_PASSWORD") {
-            builder = builder.set_override("admin.password", admin_password)?;
-        }
-
-        // --------------------------------------------------------------------------------
-        //                                  SMTP SETTINGS
-        // --------------------------------------------------------------------------------
-        if let Ok(server) = env::var("SMTP_SERVER") {
-            builder = builder.set_override("smtp.server", server)?;
-        }
-        if let Ok(port) = env::var("SMTP_PORT") {
-            builder = builder.set_override("smtp.port", port)?;
-        }
-        if let Ok(username) = env::var("SMTP_USERNAME") {
-            builder = builder.set_override("smtp.username", username)?;
-        }
-        if let Ok(password) = env::var("SMTP_PASSWORD") {
-            builder = builder.set_override("smtp.password", password)?;
-        }
+            .add_source(File::with_name(&format!("config/env/{}", run_mode)).required(false))
+            // Add in settings from environment variables (with '.' as separator)
+            // E.g. `server.port=5000` would set `server.port`
+            .add_source(Environment::default().separator("."));
 
         // "./logs/default_cred.json" exists then read it else skip
         if Path::new("./logs/default_cred.json").exists() {
@@ -137,10 +91,7 @@ impl Settings {
             builder = builder.set_override("default_cred.resource_ids", vec!["00000000-0000-0000-0000-000000000000"])?;
         }
 
-        builder
-            .build()?
-            // Deserialize (and thus freeze) the entire configuration.
-            .try_deserialize()
+        builder.build()?.try_deserialize()
     }
 
     pub fn reload() -> Result<(), ConfigError> {
@@ -149,14 +100,6 @@ impl Settings {
         *settings = new_settings;
         Ok(())
     }
-
-    // pub fn get<F, T>(f: F) -> T
-    // where
-    //     F: FnOnce(&Settings) -> T,
-    // {
-    //     let settings = SETTINGS.read();
-    //     f(&settings)
-    // }
 }
 
 impl fmt::Display for Server {
